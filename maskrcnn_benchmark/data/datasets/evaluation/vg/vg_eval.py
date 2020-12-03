@@ -54,7 +54,6 @@ def do_vg_evaluation(
         groundtruths.append(gt)
 
     save_output(output_folder, groundtruths, predictions, dataset)
-    
     result_str = '\n' + '=' * 100 + '\n'
     if "bbox" in iou_types:
         # create a Coco-like object that we can use to evaluate detection!
@@ -100,6 +99,9 @@ def do_vg_evaluation(
                 )
             # logger.info(cocolike_predictions)
         cocolike_predictions = np.concatenate(cocolike_predictions, 0)
+        print(cocolike_predictions)
+        print(cocolike_predictions.shape)
+        exit()
         # evaluate via coco API
         res = fauxcoco.loadRes(cocolike_predictions)
         coco_eval = COCOeval(fauxcoco, res, 'bbox')

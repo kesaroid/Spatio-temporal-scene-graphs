@@ -39,7 +39,6 @@ try:
 except ImportError:
     raise ImportError('Use APEX for multi-precision via apex.amp')
 
-
 def train(cfg, local_rank, distributed, logger):
     debug_print(logger, 'prepare training')
     model = build_detection_model(cfg) 

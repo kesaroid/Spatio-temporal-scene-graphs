@@ -7,6 +7,7 @@ import copy
 
 class DatasetCatalog(object):
     DATA_DIR = "datasets"
+    AG_DATA_DIR = "/media/engineering/Millenium Falcon/Thesis/ActionGenome/dataset/ag"
     DATASETS = {
         "coco_2017_train": {
             "img_dir": "coco/train2017",
@@ -117,6 +118,16 @@ class DatasetCatalog(object):
             "dict_file": "vg/VG-SGG-dicts-with-attri.json",
             "image_file": "vg/image_data.json",
         },
+        "AG_v3Graph_train": {
+            "img_dir": "frames",
+            "ann_file": "annotations/COCO/action_genome_train_v3graph_v2.json",
+            "split": 'train',
+        },
+        "AG_v3Graph_val": {
+            "img_dir": "frames",
+            "ann_file": "annotations/COCO/action_genome_test_v3graph_v2.1.json",
+            "split": 'val',
+        }
     }
 
     @staticmethod
@@ -162,6 +173,31 @@ class DatasetCatalog(object):
             args['custom_path'] = cfg.TEST.CUSTUM_PATH
             return dict(
                 factory="VGDataset",
+                args=args,
+            )
+        elif "AG" in name:
+            # name should be something like VG_stanford_filtered_train
+            p = name.rfind("_")
+            split = name[p+1:]
+            # name = name[:p] #TODO Create cache for val data
+            assert name in DatasetCatalog.DATASETS and split in {'train', 'val', 'test'}
+            data_dir = DatasetCatalog.AG_DATA_DIR
+            attrs = DatasetCatalog.DATASETS[name]
+            args = dict(
+                img_dir=os.path.join(data_dir, attrs["img_dir"]),
+                ann_file=os.path.join(data_dir, attrs["ann_file"]),
+                split=attrs["split"],
+            )
+            args['split'] = split
+            # IF MODEL.RELATION_ON is True, filter images with empty rels
+            # else set filter to False, because we need all images for pretraining detector
+            args['filter_non_overlap'] = (not cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX) and cfg.MODEL.RELATION_ON and cfg.MODEL.ROI_RELATION_HEAD.REQUIRE_BOX_OVERLAP
+            args['filter_empty_rels'] = cfg.MODEL.RELATION_ON
+            args['flip_aug'] = cfg.MODEL.FLIP_AUG
+            args['custom_eval'] = cfg.TEST.CUSTUM_EVAL
+            args['custom_path'] = cfg.TEST.CUSTUM_PATH
+            return dict(
+                factory="AGDataset",
                 args=args,
             )
 

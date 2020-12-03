@@ -50,13 +50,21 @@ def get_dataset_statistics(cfg):
     logger.info('finish')
 
     assert len(statistics) == 1
-    result = {
-        'fg_matrix': statistics[0]['fg_matrix'],
-        'pred_dist': statistics[0]['pred_dist'],
-        'obj_classes': statistics[0]['obj_classes'], # must be exactly same for multiple datasets
-        'rel_classes': statistics[0]['rel_classes'],
-        'att_classes': statistics[0]['att_classes'],
-    }
+    if cfg.MODEL.ATTRIBUTE_ON:
+        result = {
+            'fg_matrix': statistics[0]['fg_matrix'],
+            'pred_dist': statistics[0]['pred_dist'],
+            'obj_classes': statistics[0]['obj_classes'], # must be exactly same for multiple datasets
+            'rel_classes': statistics[0]['rel_classes'],
+            'att_classes': statistics[0]['att_classes'],  # Attributes not in ag dataset
+        }
+    else:
+        result = {
+            'fg_matrix': statistics[0]['fg_matrix'],
+            'pred_dist': statistics[0]['pred_dist'],
+            'obj_classes': statistics[0]['obj_classes'], # must be exactly same for multiple datasets
+            'rel_classes': statistics[0]['rel_classes'],
+        }
     logger.info('Save data statistics to: ' + str(save_file))
     logger.info('-'*100)
     torch.save(result, save_file)
@@ -205,7 +213,6 @@ def make_data_loader(cfg, mode='train', is_distributed=False, start_iter=0):
         dataset_list = cfg.DATASETS.VAL
     else:
         dataset_list = cfg.DATASETS.TEST
-
     # If bbox aug is enabled in testing, simply set transforms to None and we will apply transforms later
     transforms = None if not is_train and cfg.TEST.BBOX_AUG.ENABLED else build_transforms(cfg, is_train)
     datasets = build_dataset(cfg, dataset_list, transforms, DatasetCatalog, is_train)

@@ -216,14 +216,16 @@ class MotifPredictor(nn.Module):
 
         # load class dict
         statistics = get_dataset_statistics(config)
-        obj_classes, rel_classes, att_classes = statistics['obj_classes'], statistics['rel_classes'], statistics['att_classes']
+        obj_classes, rel_classes = statistics['obj_classes'], statistics['rel_classes']
         assert self.num_obj_cls==len(obj_classes)
-        assert self.num_att_cls==len(att_classes)
         assert self.num_rel_cls==len(rel_classes)
-        # init contextual lstm encoding
+
         if self.attribute_on:
+            att_classes = statistics['att_classes']
+            assert self.num_att_cls==len(att_classes)
             self.context_layer = AttributeLSTMContext(config, obj_classes, att_classes, rel_classes, in_channels)
         else:
+            att_classes = [None]
             self.context_layer = LSTMContext(config, obj_classes, rel_classes, in_channels)
 
         # post decoding

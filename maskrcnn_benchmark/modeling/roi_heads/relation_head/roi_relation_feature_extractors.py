@@ -81,7 +81,6 @@ class RelationFeatureExtractor(nn.Module):
                         (dummy_x_range <= tail_proposal.bbox[:,2].ceil().view(-1,1,1).long()) & \
                         (dummy_y_range >= tail_proposal.bbox[:,1].floor().view(-1,1,1).long()) & \
                         (dummy_y_range <= tail_proposal.bbox[:,3].ceil().view(-1,1,1).long())).float()
-
             rect_input = torch.stack((head_rect, tail_rect), dim=1) # (num_rel, 4, rect_size, rect_size)
             rect_inputs.append(rect_input)
 

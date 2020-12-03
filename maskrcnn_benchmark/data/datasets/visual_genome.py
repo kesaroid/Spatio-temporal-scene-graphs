@@ -203,7 +203,6 @@ def get_VG_statistics(img_dir, roidb_file, dict_file, image_file, must_overlap=T
             box_filter(gt_boxes, must_overlap=must_overlap), dtype=int)]
         for (o1, o2) in o1o2_total:
             bg_matrix[o1, o2] += 1
-
     return fg_matrix, bg_matrix
     
 
