@@ -732,3 +732,5 @@ TEST:
 2020-12-03 12:41:08,588 maskrcnn_benchmark INFO: eta: 13:06:08  iter: 5000  loss: 0.7016 (2.8184)  loss_classifier: 0.3643 (2.4208)  loss_box_reg: 0.1671 (0.2289)  loss_objectness: 0.0973 (0.1347)  loss_rpn_box_reg: 0.0188 (0.0340)  time: 0.9445 (1.0482)  data: 0.3378 (0.4466)  lr: 0.000400  max mem: 4556
 2020-12-03 12:41:08,589 maskrcnn_benchmark INFO: Start validating
 2020-12-03 12:41:08,855 maskrcnn_benchmark.inference INFO: Start evaluation on AG_v3Graph_val dataset(56922 images).
+2020-12-03 14:51:08,129 maskrcnn_benchmark.inference INFO: Total run time: 2:09:59.274290 (0.13701687028430584 s / img per device, on 1 devices)
+2020-12-03 14:51:08,215 maskrcnn_benchmark.inference INFO: Model inference time: 1:38:47.204865 (0.10412854195177243 s / img per device, on 1 devices)
