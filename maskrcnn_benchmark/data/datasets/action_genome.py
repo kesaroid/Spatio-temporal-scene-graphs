@@ -55,13 +55,13 @@ class AGDataset(Dataset):
         else:
             self.filenames, self.im_sizes, self.gt_boxes, self.gt_classes, self.relationships = self.load_graphs(self.coco.dataset, mode=self.split)
 
+        print(self.__getitem__(1))
+        print(self.filenames[1], self.gt_boxes[1], self.gt_classes[1], self.relationships[1])
+        exit()
 
-    def __getitem__(self, index): #TODO Make this function multiprocessable (probably coco is not letting it happen)
-        # Own coco file
-        coco = self.coco
-        img_id = self.image_index[index]
-        path = coco.loadImgs(img_id).pop()['filename']
-        img = Image.open(os.path.join(self.img_dir, path)) # .convert("RGB")
+    def __getitem__(self, index):
+
+        img = Image.open(os.path.join(self.img_dir, self.filenames[index]))        
         
         if self.custom_eval:
             target = torch.LongTensor([-1])
@@ -106,7 +106,6 @@ class AGDataset(Dataset):
         # target.add_field("pred_labels", torch.from_numpy(obj_relations))
         target.add_field("relation", torch.from_numpy(obj_relations), is_triplet=True)
         target.add_field("attributes", torch.from_numpy(obj_attributes)) # Useless
-        
         if evaluation:
             target = target.clip_to_image(remove_empty=False)
             target.add_field("relation_tuple", torch.LongTensor(obj_relation_triplets)) # for evaluation

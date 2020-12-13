@@ -125,8 +125,13 @@ class DatasetCatalog(object):
         },
         "AG_v3Graph_val": {
             "img_dir": "frames",
-            "ann_file": "annotations/COCO/action_genome_test_v3graph_v2.1.json",
+            "ann_file": "annotations/COCO/action_genome_val_v3graph_v2.json",
             "split": 'val',
+        },
+        "AG_v3Graph_test": {
+            "img_dir": "frames",
+            "ann_file": "annotations/COCO/action_genome_test_v3graph_v2.json",
+            "split": 'test',
         }
     }
 

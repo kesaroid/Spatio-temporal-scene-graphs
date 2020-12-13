@@ -13,6 +13,10 @@ dist/
 
 # checkpoint
 checkpoint/
+*.pth
+*.pkl
+*.txt
+*.cache
 
 # dataset
 datasets/vg/

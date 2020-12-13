@@ -6,7 +6,7 @@ INPUT:
 MODEL:
   META_ARCHITECTURE: "GeneralizedRCNN"
   WEIGHT: "catalog://ImageNetPretrained/FAIR/20171220/X-101-32x8d"
-  PRETRAINED_DETECTOR_CKPT: 'checkpoint/pretrained_faster_rcnn/faster_rcnn_1_3_134970.pth'
+  PRETRAINED_DETECTOR_CKPT: 'checkpoints/pretrained_faster_rcnn/model_0050000.pth'
   BACKBONE:
     CONV_BODY: "R-101-FPN" # VGG-16
   RESNETS:
@@ -101,6 +101,7 @@ DATASETS:
 DATALOADER:
   SIZE_DIVISIBILITY: 32
 SOLVER:
+  IMS_PER_BATCH: 8
   BIAS_LR_FACTOR: 1
   BASE_LR: 0.001
   WARMUP_FACTOR: 0.1
@@ -121,9 +122,10 @@ SOLVER:
     COOLDOWN: 0
     FACTOR: 0.1
     MAX_DECAY_STEP: 3
-OUTPUT_DIR: './output/relation_baseline'
+OUTPUT_DIR: 'output/relation_baseline'
 GLOVE_DIR: 'checkpoint/share/glove.6B'
 TEST:
+  IMS_PER_BATCH: 4
   ALLOW_LOAD_FROM_CACHE: True
   RELATION:
     SYNC_GATHER: True      # turn on will slow down the evaluation to solve the sgdet test out of memory problem

@@ -9,6 +9,7 @@ from maskrcnn_benchmark.utils.env import setup_environment  # noqa F401 isort:sk
 
 import argparse
 import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 import time
 import datetime
 
@@ -76,7 +77,7 @@ def train(cfg, local_rank, distributed, logger):
     # Initialize mixed-precision training
     use_mixed_precision = cfg.DTYPE == "float16"
     amp_opt_level = 'O1' if use_mixed_precision else 'O0'
-    model, optimizer = amp.initialize(model, optimizer, opt_level=amp_opt_level)
+    model, optimizer = amp.initialize(model, optimizer, opt_level='O0')
 
     if distributed:
         model = torch.nn.parallel.DistributedDataParallel(
@@ -142,7 +143,6 @@ def train(cfg, local_rank, distributed, logger):
 
         images = images.to(device)
         targets = [target.to(device) for target in targets]
-
         loss_dict = model(images, targets)
 
         losses = sum(loss for loss in loss_dict.values())

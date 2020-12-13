@@ -52,4 +52,4 @@ CUDA_VISIBLE_DEVICES=1 python tools/relation_train_net.py --config-file "configs
 CUDA_VISIBLE_DEVICES=1 python tools/detector_pretrain_net.py --config-file "configs/e2e_relation_detector_X_101_32_8_FPN_1x_ag.yaml" SOLVER.IMS_PER_BATCH 8 TEST.IMS_PER_BATCH 6 DTYPE "float16" SOLVER.VAL_PERIOD 5000 SOLVER.CHECKPOINT_PERIOD 5000 OUTPUT_DIR checkpoints/pretrained_faster_rcnn
 
 # AG_Train
-CUDA_VISIBLE_DEVICES=1 python tools/relation_train_net.py --config-file "configs/e2e_relation_X_101_32_8_FPN_1x_ag.yaml" MODEL.ROI_RELATION_HEAD.PREDICTOR MotifPredictor SOLVER.IMS_PER_BATCH 6 TEST.IMS_PER_BATCH 6 DTYPE "float16" OUTPUT_DIR output/test1/
+CUDA_VISIBLE_DEVICES=1 python tools/relation_train_net.py --config-file "configs/e2e_relation_X_101_32_8_FPN_1x_ag.yaml" MODEL.ROI_RELATION_HEAD.PREDICTOR MotifPredictor SOLVER.IMS_PER_BATCH 6 TEST.IMS_PER_BATCH 4 DTYPE "float16" OUTPUT_DIR output/test1/

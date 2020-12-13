@@ -86,7 +86,9 @@ class RelationFeatureExtractor(nn.Module):
 
         # rectangle feature. size (total_num_rel, in_channels, POOLER_RESOLUTION, POOLER_RESOLUTION)
         rect_inputs = torch.cat(rect_inputs, dim=0)
-        rect_features = self.rect_conv(rect_inputs)
+        if rect_inputs.size() == torch.Size([0, 2, 27, 27]):
+            print(rect_inputs.size()) # Once in a while, everything rel_pair is empty
+        rect_features = self.rect_conv(rect_inputs.float())
 
         # union visual feature. size (total_num_rel, in_channels, POOLER_RESOLUTION, POOLER_RESOLUTION)
         union_vis_features = self.feature_extractor.pooler(x, union_proposals)

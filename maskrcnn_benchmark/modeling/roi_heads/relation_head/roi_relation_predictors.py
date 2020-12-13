@@ -35,10 +35,10 @@ class TransformerPredictor(nn.Module):
 
         # load class dict
         statistics = get_dataset_statistics(config)
-        obj_classes, rel_classes, att_classes = statistics['obj_classes'], statistics['rel_classes'], statistics['att_classes']
+        obj_classes, rel_classes = statistics['obj_classes'], statistics['rel_classes']
         assert self.num_obj_cls==len(obj_classes)
-        assert self.num_att_cls==len(att_classes)
         assert self.num_rel_cls==len(rel_classes)
+
         # module construct
         self.context_layer = TransformerContext(config, obj_classes, rel_classes, in_channels)
 
@@ -329,10 +329,10 @@ class VCTreePredictor(nn.Module):
 
         # load class dict
         statistics = get_dataset_statistics(config)
-        obj_classes, rel_classes, att_classes = statistics['obj_classes'], statistics['rel_classes'], statistics['att_classes']
+        obj_classes, rel_classes = statistics['obj_classes'], statistics['rel_classes']
         assert self.num_obj_cls==len(obj_classes)
-        assert self.num_att_cls==len(att_classes)
         assert self.num_rel_cls==len(rel_classes)
+
         # init contextual lstm encoding
         self.context_layer = VCTreeLSTMContext(config, obj_classes, rel_classes, statistics, in_channels)
 
