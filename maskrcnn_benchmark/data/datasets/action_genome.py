@@ -55,10 +55,6 @@ class AGDataset(Dataset):
         else:
             self.filenames, self.im_sizes, self.gt_boxes, self.gt_classes, self.relationships = self.load_graphs(self.coco.dataset, mode=self.split)
 
-        print(self.__getitem__(1))
-        print(self.filenames[1], self.gt_boxes[1], self.gt_classes[1], self.relationships[1])
-        exit()
-
     def __getitem__(self, index):
 
         img = Image.open(os.path.join(self.img_dir, self.filenames[index]))        
@@ -179,6 +175,7 @@ class AGDataset(Dataset):
                 assert len(item['bbox']) == 4
                 box_i.append(item['bbox'])
                 # Append all relationship triplets [0, <catergory_index from gt_ci>, <relationship>]
+                #TODO For images that only have person = check with [-56]
                 if not item['isperson'] and len(_anno) > 1:
                     gt_ci.append(item['category_id'])
                     rels.append([gt_ci.index(1), gt_ci.index(item['category_id']), item['contacting_id'].pop()])
