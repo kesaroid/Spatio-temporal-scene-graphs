@@ -24,6 +24,9 @@ datasets/vg/
 *.jpg
 *.jpeg
 
+# Results
+output/
+
 # Editor temporaries
 *.swn
 *.swo
