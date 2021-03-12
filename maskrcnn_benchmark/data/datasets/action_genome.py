@@ -30,15 +30,15 @@ class AGDataset(Dataset):
         self.img_dir = img_dir
         self.ann_file = ann_file 
         self.transforms = transforms
-        self.coco = COCO(self.ann_file)
-        self.image_index = list(sorted(self.coco.imgs.keys()))
+        self.ag = COCO(self.ann_file)
+        self.image_index = list(sorted(self.ag.imgs.keys()))
         self.filter_duplicate_rels = filter_duplicate_rels and self.split == 'train'
         self.custom_eval = custom_eval
 
         assert os.path.exists(self.ann_file), "Cannot find the Action Genome dataset at {}".format(self.ann_file)
         self.ind_to_classes = []; self.class_to_ind = dict(); self.ind_to_predicates = []; self.predicate_to_ind = dict()
 
-        for cat in self.coco.dataset['categories']:
+        for cat in self.ag.dataset['categories']:
             if cat['supercategory'] == 'object':
                 self.class_to_ind[cat['name']] = cat['id']
                 self.ind_to_classes.append(cat['name'])
@@ -53,7 +53,13 @@ class AGDataset(Dataset):
         if self.custom_eval:
             self.get_custom_imgs(custom_path)
         else:
-            self.filenames, self.im_sizes, self.gt_boxes, self.gt_classes, self.relationships = self.load_graphs(self.coco.dataset, mode=self.split)
+            self.filenames, self.im_sizes, self.gt_boxes, self.gt_classes, self.relationships, self.obj_relation_triplets = self.load_graphs(self.ag.dataset, self.split)
+            # self.filenames, self.im_sizes, self.gt_boxes, self.gt_classes, self.relationships = self.load_graphs2(self.ag.dataset, mode=self.split)
+
+        # for i in range(10):
+        #     img, target, index = self.__getitem__(i)
+        #     # print(target)
+        # exit()
 
     def __getitem__(self, index):
 
@@ -68,6 +74,7 @@ class AGDataset(Dataset):
         flip_img = (random.random() > 0.5) and self.flip_aug and (self.split == 'train')
         
         target = self.get_groundtruth(index, flip_img)
+        # target = self.get_groundtruth2(index, flip_img)
 
         if flip_img:
             img = img.transpose(method=Image.FLIP_LEFT_RIGHT)
@@ -77,8 +84,32 @@ class AGDataset(Dataset):
         
         return img, target, index
 
-
     def get_groundtruth(self, index, evaluation=False, flip_img=False):
+        # get object bounding boxes, labels and relations
+        obj_boxes = np.roll(self.gt_boxes[index].copy(), 1, axis=0)
+        # print(obj_boxes)
+        obj_labels = self.gt_classes[index].copy()
+        obj_relation_triplets = self.obj_relation_triplets[index].copy()
+        obj_relations = self.relationships[index].copy() # 3 X N
+        obj_attributes = np.zeros((obj_boxes.shape[0], obj_boxes.shape[0]))
+
+        img_info = self.get_img_info(index)
+        width, height = img_info['width'], img_info['height']
+        # print(width, height)
+        target = BoxList(obj_boxes, (width, height), mode="xyxy")
+
+        target.add_field("labels", torch.from_numpy(obj_labels))
+        target.add_field("relation", torch.from_numpy(obj_relations), is_triplet=True)
+        target.add_field("attributes", torch.from_numpy(obj_attributes)) # Useless
+        if evaluation:
+            target = target.clip_to_image(remove_empty=False)
+            target.add_field("relation_tuple", torch.LongTensor(obj_relation_triplets)) # for evaluation
+            return target
+        else:
+            target = target.clip_to_image(remove_empty=False)
+            return target
+
+    def get_groundtruth2(self, index, evaluation=False, flip_img=False):
         # get object bounding boxes, labels and relations
         obj_boxes = np.array(self.gt_boxes[index].copy())
         obj_labels = np.array(self.gt_classes[index].copy())
@@ -99,7 +130,6 @@ class AGDataset(Dataset):
         target = BoxList(obj_boxes, (width, height), mode="xyxy")
         
         target.add_field("labels", torch.from_numpy(obj_labels))
-        # target.add_field("pred_labels", torch.from_numpy(obj_relations))
         target.add_field("relation", torch.from_numpy(obj_relations), is_triplet=True)
         target.add_field("attributes", torch.from_numpy(obj_attributes)) # Useless
         if evaluation:
@@ -113,9 +143,9 @@ class AGDataset(Dataset):
     def __len__(self):
         return len(self.image_index)
 
-    def get_img_info(self, img_id):
+    def get_img_info(self, img_id): #TODO Switch w, h here 
         w, h = self.im_sizes[img_id, :]
-        return {"height": h, "width": w}
+        return {"height": w, "width": h}
 
     def map_class_id_to_class_name(self, class_id):
         return self.ind_to_classes[class_id]
@@ -129,7 +159,8 @@ class AGDataset(Dataset):
             self.img_info.append({'width':int(img.width), 'height':int(img.height)})
     
     def get_statistics(self):
-        fg_matrix, bg_matrix = get_AG_statistics(img_dir=self.img_dir, ann_file=self.ann_file, must_overlap=True)
+        fg_matrix, bg_matrix = self.get_AG_statistics(img_dir=self.img_dir, ann_file=self.ann_file, must_overlap=True)
+        # fg_matrix, bg_matrix = get_AG_statistics(img_dir=self.img_dir, ann_file=self.ann_file, must_overlap=True)
         eps = 1e-3
         bg_matrix += 1
         fg_matrix[:, :, 0] = bg_matrix
@@ -145,11 +176,76 @@ class AGDataset(Dataset):
 
     def load_graphs(self, annotation, mode='train', num_im=-1, num_val_im=0, filter_empty_rels=True,
                     filter_non_overlap=False, cache=True):
+        # Check mode
+        if mode not in ('train', 'val', 'test'):
+            raise ValueError('{} invalid'.format(mode))
+        cache_file = os.path.join('datasets/ag', 'ag_{}_cache.pkl'.format(mode))
+        if cache:
+            # Load cache if exists
+            if os.path.isfile(cache_file):
+                with open(cache_file, 'rb') as handle:
+                    (filenames, sizes, boxes, gt_classes, relationships, obj_relation_triplets) = pickle.load(handle)
+                print('Read imdb from cache at location: {}'.format(cache_file))
+                return filenames, sizes, boxes, gt_classes, relationships, obj_relation_triplets
+        
+        single_anno = 0
+        filenames = []; sizes = []; boxes = []; gt_classes = []; relationships = []; obj_relation_triplets = []
+        relationship = ['attention_id', 'spatial_id', 'contacting_id']
+
+        for i, imgs in tqdm(enumerate(self.image_index)):
+            # Load ag['image'] & ag['annotations']
+            _img = self.ag.dataset['images'][i]
+            _anno = list(filter(lambda item: item['image_id'] == imgs, self.ag.dataset['annotations']))
+
+            filenames.append(_img['filename'])
+            sizes.append(np.array([_img['height'], _img['width']]))
+
+            if len(_anno) == 1 : single_anno += 1
+            box_i = []; gt_ci = [1]; rels = np.zeros((3, max(1, len(_anno)))); obj_rel_triplet = []
+            #TODO If only one object and no people or only person
+            assert _anno != 1 or _anno.pop()['label'] == 'person', 'Only 1 Annotation i.e {}'.format(_anno.pop()['label'])
+
+            for item in _anno:
+                # Append all annotations of an image into one array
+                assert len(item['bbox']) == 4
+                box_i.append(item['bbox'])
+                # Append all relationship triplets [0, <catergory_index from gt_ci>, <relationship>]
+                
+                if item['label'] != 'person':
+                    gt_ci.append(item['category_id'])
+                    for rel_cat in relationship:
+                        assert len(item[rel_cat]) != 0
+                        rels[relationship.index(rel_cat), gt_ci.index(item['category_id'])] = item[rel_cat][0]
+                        obj_rel_triplet.append([gt_ci.index(1), gt_ci.index(item['category_id']), item[rel_cat][0]])
+                       
+            assert np.asarray(rels).shape[1] == np.asarray(gt_ci).shape[0]
+
+            box_i = np.array(box_i)
+            assert box_i.ndim == 2, 'bbox missing for image_index: {}'.format(_anno)
+
+            boxes.append(box_i)
+            gt_classes.append(np.array(gt_ci))
+            relationships.append(np.array(rels))
+            obj_relation_triplets.append(np.array(obj_rel_triplet))
+
+        sizes = np.stack(sizes, 0)
+        
+        # Create cache to save time
+        if cache:
+            with open(cache_file, 'wb') as handle:
+                pickle.dump((filenames, sizes, boxes, gt_classes, relationships, obj_relation_triplets), handle, protocol=pickle.HIGHEST_PROTOCOL)
+            print('Wrote the imdb to cache at location: {}'.format(cache_file))
+        
+        return filenames, sizes, boxes, gt_classes, relationships, obj_relation_triplets
+
+
+    def load_graphs2(self, annotation, mode='train', num_im=-1, num_val_im=0, filter_empty_rels=True,
+                    filter_non_overlap=False, cache=True):
         
         # Check mode
         if mode not in ('train', 'val', 'trainval'):
             raise ValueError('{} invalid'.format(mode))
-        cache_file = os.path.join('datasets', 'ag_{}_cache.pkl'.format(mode))
+        cache_file = os.path.join('datasets/ag', 'ag_{}_cache_contacting.pkl'.format(mode))
         
         if cache:
             # Load cache if exists
@@ -163,8 +259,8 @@ class AGDataset(Dataset):
 
         for i, imgs in tqdm(enumerate(self.image_index)):
             # Load ag['image'] & ag['annotations']
-            _img = self.coco.dataset['images'][i]
-            _anno = list(filter(lambda item: item['image_id'] == imgs, self.coco.dataset['annotations']))
+            _img = self.ag.dataset['images'][i]
+            _anno = list(filter(lambda item: item['image_id'] == imgs, self.ag.dataset['annotations']))
 
             filenames.append(_img['filename'])
             sizes.append(np.array([_img['height'], _img['width']]))
@@ -203,6 +299,34 @@ class AGDataset(Dataset):
         
         return filenames, sizes, boxes, gt_classes, relationships
 
+
+    def get_AG_statistics(self, img_dir, ann_file, must_overlap=True):
+        # train_data = AGDataset(split='train', img_dir=img_dir, ann_file=ann_file, 
+        #                     num_val_im=5000, filter_duplicate_rels=False)
+        num_obj_classes = len(self.ind_to_classes)
+        num_rel_classes = len(self.ind_to_predicates)
+        fg_matrix = np.zeros((num_obj_classes, num_obj_classes, num_rel_classes), dtype=np.int64)
+        bg_matrix = np.zeros((num_obj_classes, num_obj_classes), dtype=np.int64)
+
+        for ex_ind in tqdm(range(len(self.image_index))):
+            gt_classes = self.gt_classes[ex_ind].copy()
+            gt_relations = self.obj_relation_triplets[ex_ind].copy()
+            gt_boxes = self.gt_boxes[ex_ind].copy()
+
+            if len(gt_relations) == 0:
+                continue
+            
+            # For the foreground, we'll just look at everything
+            o1o2 = gt_classes[gt_relations[:, :2]]
+            
+            for (o1, o2), gtr in zip(o1o2, gt_relations[:,2]):
+                fg_matrix[o1, o2, gtr] += 1
+            # For the background, get all of the things that overlap.
+            o1o2_total = gt_classes[np.array(
+                box_filter(gt_boxes, must_overlap=must_overlap), dtype=int)]
+            for (o1, o2) in o1o2_total:
+                bg_matrix[o1, o2] += 1
+        return fg_matrix, bg_matrix
 
 def get_AG_statistics(img_dir, ann_file, must_overlap=True):
     train_data = AGDataset(split='train', img_dir=img_dir, ann_file=ann_file, 
@@ -268,32 +392,3 @@ def bbox_overlaps(boxes1, boxes2, to_move=1):
     inter = wh[:, :, 0] * wh[:, :, 1]  # [N,M]
 
     return inter
-    
-# [{'id': 372891829902578154, 'label': 'table', 'bbox': [222.10317460317458, 143.829365079365, 479.88095238095235, 244.9404761904761], 
-# 'area': 26064.19753086419, 'iscrowd': 0, 'category_id': 31, 'image_id': 0, 'attention_relationship': ['unsure'], 'attention_id': [38], 
-# 'spatial_relationship': ['in_front_of'], 'spatial_id': [41], 'contacting_relationship': ['not_contacting'], 'contacting_id': [53]}]
-# {'id': 372891834197545450, 'label': 'chair', 'bbox': [56.34126984126985, 179.16666666666663, 249.11904761904762, 269.7355687782746],
-#  'area': 17459.671684848872, 'iscrowd': 0, 'category_id': 7, 'image_id': 0, 'attention_relationship': ['not_looking_at'], 'attention_id': [37],
-#  'spatial_relationship': ['beneath', 'behind'], 'spatial_id': [40, 42], 'contacting_relationship': ['sitting_on', 'leaning_on'], 'contacting_id': [51, 55]}
-# {'id': 372933345056461290, 'label': 'person', 'bbox': [24.297740936279297, 71.44395446777344, 259.23602294921875, 268.202880859375], 
-# 'category_id': 0, 'area': 46226.20413715328, 'image_id': 0, 'iscrowd': 0}
-
-
-    # if 'attention_id' in item:
-    #     gt_ci.extend(item['attention_id'])
-    # if 'spatial_id' in item:
-    #     gt_ci.extend(item['spatial_id'])
-    # if 'contacting_id' in item:
-    #     gt_ci.extend(item['contacting_id'])
-    
-    # Append all relationship triplets [0. <relationship>, <category_id>]
-    # if item['label'] != 'person':
-    #     rels = []
-    #     for j in range(len(item['attention_relationship'])):
-    #         rels.append([0, item['category_id'], item['attention_id'][j]])
-    #     for j in range(len(item['contacting_relationship'])):
-    #         rels.append([0, item['category_id'], item['contacting_id'][j]])
-    #     for j in range(len(item['spatial_relationship'])):
-    #         rels.append([0, item['category_id'], item['spatial_id'][j]])
-
-    #     relationships.append(np.array(rels))

@@ -12,7 +12,8 @@ from maskrcnn_benchmark.data import get_dataset_statistics
 from maskrcnn_benchmark.structures.bounding_box import BoxList
 from maskrcnn_benchmark.structures.boxlist_ops import boxlist_iou
 from maskrcnn_benchmark.utils.miscellaneous import intersect_2d, argsort_desc, bbox_overlaps
-from maskrcnn_benchmark.data.datasets.evaluation.vg.sgg_eval import SGRecall, SGNoGraphConstraintRecall, SGZeroShotRecall, SGNGZeroShotRecall, SGPairAccuracy, SGMeanRecall, SGNGMeanRecall, SGAccumulateRecall
+# from maskrcnn_benchmark.data.datasets.evaluation.vg.sgg_eval import SGRecall, SGNoGraphConstraintRecall, SGZeroShotRecall, SGNGZeroShotRecall, SGPairAccuracy, SGMeanRecall, SGNGMeanRecall, SGAccumulateRecall
+from maskrcnn_benchmark.data.datasets.evaluation.ag.sgg_eval import SGRecall, SGNoGraphConstraintRecall, SGZeroShotRecall, SGNGZeroShotRecall, SGPairAccuracy, SGMeanRecall, SGNGMeanRecall, SGAccumulateRecall
 
 def do_ag_evaluation(
     cfg,
@@ -59,7 +60,8 @@ def do_ag_evaluation(
 
     result_str = '\n' + '=' * 100 + '\n'
     if "bbox" in iou_types:
-        fauxcoco = dataset.coco
+        # create a Coco-like object that we can use to evaluate detection!
+        fauxcoco = dataset.ag
         fauxcoco.createIndex()
 
         # format predictions to coco-like
@@ -70,7 +72,7 @@ def do_ag_evaluation(
             label = prediction.get_field('pred_labels').detach().cpu().numpy() # (#objs,)
             # for predcls, we set label and score to groundtruth
             if mode == 'predcls':
-                label = prediction.get_field('labels').detach().cpu().numpy()
+                label = prediction.get_field('pred_labels').detach().cpu().numpy() # labels TODO
                 score = np.ones(label.shape[0])
                 assert len(label) == len(box)
             image_id = np.asarray([image_id]*len(box))
@@ -176,13 +178,11 @@ def save_output(output_folder, groundtruths, predictions, dataset):
     if output_folder:
         torch.save({'groundtruths':groundtruths, 'predictions':predictions}, os.path.join(output_folder, "eval_results.pytorch"))
 
-        #with open(os.path.join(output_folder, "result.txt"), "w") as f:
-        #    f.write(result_str)
         # visualization information
         visual_info = []
+        AG_DATA_DIR = "/media/engineering/Millenium Falcon/Thesis/ActionGenome/dataset/ag/frames"
         for image_id, (groundtruth, prediction) in enumerate(zip(groundtruths, predictions)):
-            #TODO Absolute path of the filename is incorrect here 
-            img_file = None # os.path.abspath(dataset.filenames[image_id])
+            img_file = os.path.join(AG_DATA_DIR, dataset.filenames[image_id])
             groundtruth = [
                 [b[0], b[1], b[2], b[3], dataset.categories[l]] # xyxy, str
                 for b, l in zip(groundtruth.bbox.tolist(), groundtruth.get_field('labels').tolist())
@@ -222,7 +222,9 @@ def evaluate_relation_of_one_image(groundtruth, prediction, global_container, ev
     local_container['gt_classes'] = groundtruth.get_field('labels').long().detach().cpu().numpy()           # (#gt_objs, )
 
     # about relations
-    local_container['pred_rel_inds'] = prediction.get_field('rel_pair_idxs').long().detach().cpu().numpy()  # (#pred_rels, 2)
+    pred_rel_inds = prediction.get_field('rel_pair_idxs').long().detach().cpu().numpy()  # (#pred_rels, 2)
+    pred_rel_inds[:, 0] = 0
+    local_container['pred_rel_inds'] = pred_rel_inds
     local_container['rel_scores'] = prediction.get_field('pred_rel_scores').detach().cpu().numpy()          # (#pred_rels, num_pred_class)
 
     # about objects

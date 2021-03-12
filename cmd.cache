@@ -7,7 +7,7 @@ CUDA_VISIBLE_DEVICES=0,1,2,3 python -m torch.distributed.launch --master_port 10
 CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch --master_port 10002 --nproc_per_node=2 tools/detector_pretrain_net.py --config-file "configs/e2e_relation_detector_R_101_FPN_1x.yaml" SOLVER.IMS_PER_BATCH 4 TEST.IMS_PER_BATCH 2 DTYPE "float16" SOLVER.MAX_ITER 80000 SOLVER.STEPS "(40000, 57000)" SOLVER.VAL_PERIOD 5000 SOLVER.CHECKPOINT_PERIOD 5000 MODEL.RELATION_ON False OUTPUT_DIR /home/kaihua.tkh/projects/benchmark_debug SOLVER.PRE_VAL False SOLVER.UPDATE_SCHEDULE_DURING_LOAD True
 
 ### 1 gpu
-CUDA_VISIBLE_DEVICES=0 python tools/detector_pretrain_net.py --config-file "configs/e2e_relation_detector_R_101_FPN_1x.yaml" SOLVER.IMS_PER_BATCH 2 DTYPE "float16" SOLVER.MAX_ITER 160000 SOLVER.STEPS "(80000, 108000)" SOLVER.VAL_PERIOD 5000 SOLVER.CHECKPOINT_PERIOD 5000 MODEL.RELATION_ON False OUTPUT_DIR data/benchmark_debug SOLVER.UPDATE_SCHEDULE_DURING_LOAD True
+CUDA_VISIBLE_DEVICES=1 python tools/detector_pretrain_net.py --config-file "configs/e2e_relation_detector_R_101_FPN_1x.yaml" SOLVER.IMS_PER_BATCH 8 DTYPE "float16" SOLVER.STEPS "(80000, 108000)" SOLVER.VAL_PERIOD 5000 SOLVER.CHECKPOINT_PERIOD 5000 MODEL.RELATION_ON False SOLVER.UPDATE_SCHEDULE_DURING_LOAD True
 
 
 ## testing
@@ -42,17 +42,30 @@ CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch --master_port 10005 
 
 =========================================================================================================================================
 
+# Predicate Classification (PredCls): MODEL.ROI_RELATION_HEAD.USE_GT_BOX True MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL True
+# Scene Graph Classification (SGCls): MODEL.ROI_RELATION_HEAD.USE_GT_BOX True MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL False
+# Scene Graph Detection (SGDet): MODEL.ROI_RELATION_HEAD.USE_GT_BOX False MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL False
+
 # Faster-RCNN pretrain
-CUDA_VISIBLE_DEVICES=1 python tools/detector_pretrain_net.py --config-file "configs/e2e_relation_detector_X_101_32_8_FPN_1x_ag.yaml" SOLVER.IMS_PER_BATCH 8 TEST.IMS_PER_BATCH 6 DTYPE "float16"
+CUDA_VISIBLE_DEVICES=1 python tools/detector_pretrain_net.py --config-file "configs/Detector_X_101_32_8_FPN_1x_ag.yaml" SOLVER.IMS_PER_BATCH 8 TEST.IMS_PER_BATCH 6 DTYPE "float16" OUTPUT_DIR './output/pre101rcnn/'
 
 # Faster-RCNN test
-CUDA_VISIBLE_DEVICES=1 python tools/detector_pretest_net.py --config-file "configs/e2e_relation_detector_X_101_32_8_FPN_1x_ag.yaml" DTYPE "float16" OUTPUT_DIR output/pretrained-rcnn MODEL.RELATION_ON False
+CUDA_VISIBLE_DEVICES=1 python tools/detector_pretest_net.py --config-file "configs/Detector_X_101_32_8_FPN_1x_ag.yaml" DTYPE "float16" OUTPUT_DIR output/train3 MODEL.RELATION_ON False
 
 # AG_Train
-CUDA_VISIBLE_DEVICES=1 python tools/relation_train_net.py --config-file "configs/e2e_relation_X_101_32_8_FPN_1x_ag.yaml" MODEL.ROI_RELATION_HEAD.USE_GT_BOX True MODEL.ROI_RELATION_HEAD.PREDICTOR MotifPredictor SOLVER.IMS_PER_BATCH 8 TEST.IMS_PER_BATCH 4 DTYPE "float16" OUTPUT_DIR output/train1/ SOLVER.PRE_VAL False
+# Motifnet
+CUDA_VISIBLE_DEVICES=1 python tools/relation_train_net.py --config-file "configs/Relation_X_101_32_8_FPN_1x_ag.yaml" MODEL.ROI_RELATION_HEAD.USE_GT_BOX True MODEL.ROI_RELATION_HEAD.PREDICTOR MotifPredictor SOLVER.IMS_PER_BATCH 8 TEST.IMS_PER_BATCH 4 DTYPE "float16" OUTPUT_DIR output/train3/ SOLVER.PRE_VAL False
+# TransformerPredictor
+CUDA_VISIBLE_DEVICES=1 python tools/relation_train_net.py --config-file "configs/Relation_X_101_32_8_FPN_1x_ag.yaml" MODEL.ROI_RELATION_HEAD.USE_GT_BOX True MODEL.ROI_RELATION_HEAD.PREDICTOR TransformerPredictor SOLVER.IMS_PER_BATCH 8 TEST.IMS_PER_BATCH 4 DTYPE "float16" OUTPUT_DIR output/train2/ SOLVER.PRE_VAL False
 
 # ag Evaluation
-# CUDA_VISIBLE_DEVICES=1 python tools/relation_train_net.py --config-file "configs/e2e_relation_X_101_32_8_FPN_1x_ag.yaml" MODEL.ROI_RELATION_HEAD.USE_GT_BOX True MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL True MODEL.ROI_RELATION_HEAD.PREDICTOR MotifPredictor TEST.IMS_PER_BATCH 32 DTYPE "float16" OUTPUT_DIR output/relation_baseline SOLVER.PRE_VAL True
+# Motifnet
+CUDA_VISIBLE_DEVICES=1 python tools/relation_train_net.py --config-file "configs/Relation_X_101_32_8_FPN_1x_ag.yaml" MODEL.ROI_RELATION_HEAD.USE_GT_BOX True MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL True MODEL.ROI_RELATION_HEAD.PREDICTOR MotifPredictor TEST.IMS_PER_BATCH 32 DTYPE "float16" OUTPUT_DIR output/MotifNet SOLVER.PRE_VAL True
+# TransformerPredictor
+CUDA_VISIBLE_DEVICES=1 python tools/relation_train_net.py --config-file "configs/Relation_X_101_32_8_FPN_1x_ag.yaml" MODEL.ROI_RELATION_HEAD.USE_GT_BOX True MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL True MODEL.ROI_RELATION_HEAD.PREDICTOR TransformerPredictor TEST.IMS_PER_BATCH 4 DTYPE "float16" OUTPUT_DIR output/train2 SOLVER.PRE_VAL True
 
 # ag Test
-CUDA_VISIBLE_DEVICES=1 python tools/relation_test_net.py --config-file "configs/e2e_relation_R_101_FPN_1x.yaml" TEST.IMS_PER_BATCH 1 DTYPE "float16" GLOVE_DIR checkpoint/share/glove.6B SOLVER.PRE_VAL False OUTPUT_DIR output/test1
+# Motifnet
+CUDA_VISIBLE_DEVICES=1 python tools/relation_test_net.py --config-file "configs/Relation_X_101_32_8_FPN_1x_ag.yaml" TEST.IMS_PER_BATCH 4 DTYPE "float16" SOLVER.PRE_VAL False OUTPUT_DIR output/train3
+# TransformerPredictor
+CUDA_VISIBLE_DEVICES=1 python tools/relation_test_net.py --config-file "configs/Relation_X_101_32_8_FPN_1x_ag.yaml" TEST.IMS_PER_BATCH 8 DTYPE "float16" SOLVER.PRE_VAL False OUTPUT_DIR output/train2
