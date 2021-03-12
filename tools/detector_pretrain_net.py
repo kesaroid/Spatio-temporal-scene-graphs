@@ -27,7 +27,7 @@ from maskrcnn_benchmark.utils.imports import import_file
 from maskrcnn_benchmark.utils.logger import setup_logger
 from maskrcnn_benchmark.utils.miscellaneous import mkdir, save_config
 from maskrcnn_benchmark.utils.metric_logger import MetricLogger
-
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 
 # See if we can use apex.DistributedDataParallel instead of the torch default,
 # and enable mixed-precision via apex.amp
@@ -129,7 +129,6 @@ def train(cfg, local_rank, distributed, logger):
 
         eta_seconds = meters.time.global_avg * (max_iter - iteration)
         eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
-
         if iteration % 200 == 0 or iteration == max_iter:
             logger.info(
                 meters.delimiter.join(
