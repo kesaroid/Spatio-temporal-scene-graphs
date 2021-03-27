@@ -97,13 +97,37 @@ class PostProcessor(nn.Module):
                 boxlist.add_field('pred_attributes', att_prob)
             
             # sorting triples according to score production
-            obj_scores0 = obj_scores[rel_pair_idx[:, 0]]
-            obj_scores1 = obj_scores[rel_pair_idx[:, 1]]
-            rel_class_prob = F.softmax(rel_logit, -1)
+            # sub_scores = np.tile(obj_scores[0].cpu(), len(rel_pair_idx))
+            sub_scores = obj_scores[0].cpu()
+            sub_scores = sub_scores.repeat(len(rel_pair_idx))
+            obj_scores = obj_scores[rel_pair_idx[:, 1]].cpu()
+            
+            # Get all 3 relationships according to the label index
+            num_obj = int(rel_pair_idx.shape[0]/3)
+            attention_class = torch.zeros(num_obj, 27)
+            spatial_class = torch.zeros(num_obj, 27)
+            contact_class = torch.zeros(num_obj, 27)
+
+            attention_logits = rel_logit[:num_obj, :3] # because 3 attentions
+            spatial_logits = rel_logit[num_obj:num_obj*2, 3:9] # because 6 spatial
+            contact_logits = rel_logit[num_obj*2:num_obj*3, 9:] # because rest are contacting
+
+            attention_class_prob = F.softmax(attention_logits, -1)
+            spatial_class_prob = F.softmax(spatial_logits, -1)
+            contact_class_prob = F.softmax(contact_logits, -1)
+
+            attention_class[:, :3] = attention_class_prob 
+            spatial_class[:, 3:9] = spatial_class_prob
+            contact_class[:, 9:] = contact_class_prob
+            # print(len(attention_class), len(spatial_class), len(contact_class))
+            rel_class_prob = torch.cat((attention_class, spatial_class, contact_class), 0)
+
+            # rel_class_prob = F.softmax(rel_logit, -1)
             rel_scores, rel_class = rel_class_prob[:, 1:].max(dim=1)
             rel_class = rel_class + 1
-            # TODO Kaihua: how about using weighted some here?  e.g. rel*1 + obj *0.8 + obj*0.8
-            triple_scores = rel_scores * obj_scores0 * obj_scores1
+            # TODO how about using weighted sum here?  e.g. rel*1 + obj *0.8 + obj*0.8
+            # TODO Not necessary to rearrange the order
+            triple_scores = rel_scores * sub_scores * obj_scores
             _, sorting_idx = torch.sort(triple_scores.view(-1), dim=0, descending=True)
             rel_pair_idx = rel_pair_idx[sorting_idx]
             rel_class_prob = rel_class_prob[sorting_idx]

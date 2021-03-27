@@ -61,7 +61,30 @@ def do_ag_evaluation(
     result_str = '\n' + '=' * 100 + '\n'
     if "bbox" in iou_types:
         # create a Coco-like object that we can use to evaluate detection!
-        fauxcoco = dataset.ag
+        # create a Coco-like object that we can use to evaluate detection!
+        anns = []
+        for image_id, gt in enumerate(groundtruths):
+            labels = gt.get_field('labels').tolist() # integer
+            boxes = gt.bbox.tolist() # xyxy
+            for cls, box in zip(labels, boxes):
+                anns.append({
+                    'area': (box[3] - box[1] + 1) * (box[2] - box[0] + 1),
+                    'bbox': [box[0], box[1], box[2] - box[0] + 1, box[3] - box[1] + 1], # xywh
+                    'category_id': cls,
+                    'id': len(anns),
+                    'image_id': image_id,
+                    'iscrowd': 0,
+                })
+        fauxcoco = COCO()
+        fauxcoco.dataset = {
+            'info': {'description': 'use coco script for vg detection evaluation'},
+            'images': [{'id': i} for i in range(len(groundtruths))],
+            'categories': [
+                {'supercategory': 'person', 'id': i, 'name': name} 
+                for i, name in enumerate(dataset.ind_to_classes) if name != '__background__'
+                ],
+            'annotations': anns,
+        }
         fauxcoco.createIndex()
 
         # format predictions to coco-like
