@@ -3,7 +3,7 @@ import torch
 from torch.nn import functional as F
 import numpy as np
 import numpy.random as npr
-
+import copy
 from maskrcnn_benchmark.modeling.box_coder import BoxCoder
 from maskrcnn_benchmark.structures.boxlist_ops import boxlist_iou
 from maskrcnn_benchmark.modeling.utils import cat
@@ -27,7 +27,7 @@ class RelationSampling(object):
         self.use_gt_box = use_gt_box
         self.test_overlap = test_overlap
 
-    def prepare_test_pairs(self, device, proposals):
+    def prepare_test_pairs2(self, device, proposals):
         # prepare object pairs for relation prediction
         rel_pair_idxs = []
         for p in proposals:
@@ -44,8 +44,26 @@ class RelationSampling(object):
                 rel_pair_idxs.append(torch.zeros((1, 2), dtype=torch.int64, device=device))
         return rel_pair_idxs
 
+    def prepare_test_pairs(self, device, proposals):
+        # prepare object pairs for relation prediction
+        rel_pair_idxs = []
+        for p in proposals:
+            n = len(p)
+            cand_matrix = torch.ones((3, n), device=device)
+            cand_matrix[:, 0] = 0
+            # mode==sgdet and require_overlap
+            if (not self.use_gt_box) and self.test_overlap:
+                cand_matrix = cand_matrix.byte() & boxlist_iou(p, p).gt(0).byte()
+            idxs = torch.nonzero(cand_matrix).view(-1,2)
+            if len(idxs) > 0:
+                rel_pair_idxs.append(idxs)
+            else:
+                # if there is no candidate pairs, give a placeholder of [[0, 0]]
+                rel_pair_idxs.append(torch.zeros((1, 2), dtype=torch.int64, device=device))
+        rel_pair_idx = copy.deepcopy(rel_pair_idxs)
+        return rel_pair_idx, rel_pair_idxs
 
-    def gtbox_relsample(self, proposals, targets):
+    def gtbox_relsample2(self, proposals, targets):
         assert self.use_gt_box
         num_pos_per_img = int(self.batch_size_per_image * self.positive_fraction)
         rel_idx_pairs = []
@@ -91,6 +109,55 @@ class RelationSampling(object):
             rel_labels.append(img_rel_labels)
 
         return proposals, rel_labels, rel_idx_pairs, rel_sym_binarys
+
+    def gtbox_relsample(self, proposals, targets):
+        assert self.use_gt_box
+        num_pos_per_img = int(self.batch_size_per_image * self.positive_fraction)
+        rel_idx_pairs = []
+        rel_labels = []
+        rel_sym_binarys = []
+        for img_id, (proposal, target) in enumerate(zip(proposals, targets)):
+            device = proposal.bbox.device
+            num_prp = proposal.bbox.shape[0]
+
+            assert proposal.bbox.shape[0] == target.bbox.shape[0]
+            tgt_rel_matrix = target.get_field("relation") # [tgt, tgt]
+            tgt_pair_idxs = torch.nonzero(tgt_rel_matrix > 0)
+            assert tgt_pair_idxs.shape[1] == 2
+            tgt_head_idxs = tgt_pair_idxs[:, 0].contiguous().view(-1)
+            tgt_tail_idxs = tgt_pair_idxs[:, 1].contiguous().view(-1)
+            tgt_rel_labs = tgt_rel_matrix[tgt_head_idxs, tgt_tail_idxs].contiguous().view(-1)
+
+            # sym_binary_rels
+            binary_rel = torch.zeros((3, num_prp), device=device).long()
+            binary_rel[tgt_head_idxs, tgt_tail_idxs] = 1
+            # binary_rel[tgt_tail_idxs, tgt_head_idxs] = 1
+            rel_sym_binarys.append(binary_rel)
+            
+            rel_possibility = torch.ones((3, num_prp), device=device).long()
+            # rel_possibility[:, 0] = 0 # TODO Should [:, 0] be 1
+            rel_possibility[tgt_head_idxs, tgt_tail_idxs] = 0
+            tgt_bg_idxs = torch.nonzero(rel_possibility > 0)
+
+            # generate fg bg rel_pairs
+            if tgt_pair_idxs.shape[0] > num_pos_per_img:
+                perm = torch.randperm(tgt_pair_idxs.shape[0], device=device)[:num_pos_per_img]
+                tgt_pair_idxs = tgt_pair_idxs[perm]
+                tgt_rel_labs = tgt_rel_labs[perm]
+            num_fg = min(tgt_pair_idxs.shape[0], num_pos_per_img)
+
+            num_bg = self.batch_size_per_image - num_fg
+            perm = torch.randperm(tgt_bg_idxs.shape[0], device=device)[:num_bg]
+            tgt_bg_idxs = tgt_bg_idxs[perm]
+
+            # img_rel_idxs = torch.cat((tgt_pair_idxs, tgt_bg_idxs), dim=0)
+            # img_rel_labels = torch.cat((tgt_rel_labs.long(), torch.zeros(tgt_bg_idxs.shape[0], device=device).long()), dim=0).contiguous().view(-1)
+
+            rel_idx_pairs.append(tgt_pair_idxs)
+            rel_labels.append(tgt_rel_labs.long())
+            rel_pair_idx = copy.deepcopy(rel_idx_pairs)
+
+        return proposals, rel_labels, rel_idx_pairs, rel_sym_binarys, rel_pair_idx
 
 
     def detect_relsample(self, proposals, targets):

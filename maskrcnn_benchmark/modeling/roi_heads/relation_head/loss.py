@@ -75,8 +75,13 @@ class RelationLossComputation(object):
         fg_labels = cat([proposal.get_field("labels") for proposal in proposals], dim=0)
         rel_labels = cat(rel_labels, dim=0)
 
-        loss_relation = self.criterion_loss(relation_logits, rel_labels.long())
-        loss_refine_obj = self.criterion_loss(refine_obj_logits, fg_labels.long())
+        if relation_logits.shape[0] != 0: 
+            loss_relation = self.criterion_loss(relation_logits, rel_labels.long())
+            loss_refine_obj = self.criterion_loss(refine_obj_logits, fg_labels.long())
+        else:
+            device = relation_logits.device
+            loss_relation = torch.zeros(1, device=device,requires_grad=True)
+            loss_refine_obj = torch.zeros(1, device=device, requires_grad=True)
 
         # The following code is used to calcaulate sampled attribute loss
         if self.attri_on:
