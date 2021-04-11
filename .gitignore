@@ -23,6 +23,9 @@ datasets/vg/
 *.png
 *.jpg
 *.jpeg
+*.xml
+*.mp4
+*.json
 
 # Results
 output/
