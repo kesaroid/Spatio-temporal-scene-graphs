@@ -61,8 +61,10 @@ class RelationFeatureExtractor(nn.Module):
         union_proposals = []
         rect_inputs = []
         for proposal, rel_pair_idx in zip(proposals, rel_pair_idxs):
-            head_proposal = proposal[rel_pair_idx[:, 0]]
-            tail_proposal = proposal[rel_pair_idx[:, 1]]
+            relation_idx = rel_pair_idx # .detach().clone()
+            relation_idx[:, 0] = 0
+            head_proposal = proposal[relation_idx[:, 0]]
+            tail_proposal = proposal[relation_idx[:, 1]]
             union_proposal = boxlist_union(head_proposal, tail_proposal)
             union_proposals.append(union_proposal)
 
@@ -73,6 +75,7 @@ class RelationFeatureExtractor(nn.Module):
             # resize bbox to the scale rect_size
             head_proposal = head_proposal.resize((self.rect_size, self.rect_size))
             tail_proposal = tail_proposal.resize((self.rect_size, self.rect_size))
+            # Head rect and tail_rect needs to be according to the 3 different type of relations
             head_rect = ((dummy_x_range >= head_proposal.bbox[:,0].floor().view(-1,1,1).long()) & \
                         (dummy_x_range <= head_proposal.bbox[:,2].ceil().view(-1,1,1).long()) & \
                         (dummy_y_range >= head_proposal.bbox[:,1].floor().view(-1,1,1).long()) & \
@@ -86,9 +89,11 @@ class RelationFeatureExtractor(nn.Module):
 
         # rectangle feature. size (total_num_rel, in_channels, POOLER_RESOLUTION, POOLER_RESOLUTION)
         rect_inputs = torch.cat(rect_inputs, dim=0)
-        if rect_inputs.size() == torch.Size([0, 2, 27, 27]):
+        if rect_inputs.size() == torch.Size([0, 2, 27, 27]): 
             print(rect_inputs.size()) # Once in a while, everything rel_pair is empty
-        rect_features = self.rect_conv(rect_inputs.float())
+            return torch.rand([0, 4096], device=device)
+        else:
+            rect_features = self.rect_conv(rect_inputs.float())
 
         # union visual feature. size (total_num_rel, in_channels, POOLER_RESOLUTION, POOLER_RESOLUTION)
         union_vis_features = self.feature_extractor.pooler(x, union_proposals)

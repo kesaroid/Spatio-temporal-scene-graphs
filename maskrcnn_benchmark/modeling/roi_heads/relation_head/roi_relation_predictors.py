@@ -50,11 +50,24 @@ class TransformerPredictor(nn.Module):
         self.rel_compress = nn.Linear(self.pooling_dim, self.num_rel_cls)
         self.ctx_compress = nn.Linear(self.hidden_dim * 2, self.num_rel_cls)
 
+        attention_classes = 3; spatial_classes = 6; contacting_classes = 18
+        self.att_compress = nn.Linear(self.pooling_dim, attention_classes, bias=True)     
+        self.spa_compress = nn.Linear(self.pooling_dim, spatial_classes, bias=True)     
+        self.con_compress = nn.Linear(self.pooling_dim, contacting_classes, bias=True)
+
+        self.att_ctx_compress = nn.Linear(self.hidden_dim * 2, attention_classes, bias=True)     
+        self.spa_ctx_compress = nn.Linear(self.hidden_dim * 2, spatial_classes, bias=True)     
+        self.con_ctx_compress = nn.Linear(self.hidden_dim * 2, contacting_classes, bias=True)
+
         # initialize layer parameters 
         layer_init(self.post_emb, 10.0 * (1.0 / self.hidden_dim) ** 0.5, normal=True)
         layer_init(self.rel_compress, xavier=True)
         layer_init(self.ctx_compress, xavier=True)
         layer_init(self.post_cat, xavier=True)
+        
+        layer_init(self.att_compress, xavier=True); layer_init(self.att_ctx_compress, xavier=True)
+        layer_init(self.spa_compress, xavier=True); layer_init(self.spa_ctx_compress, xavier=True)
+        layer_init(self.con_compress, xavier=True); layer_init(self.con_ctx_compress, xavier=True)
         
         if self.pooling_dim != config.MODEL.ROI_BOX_HEAD.MLP_HEAD_DIM:
             self.union_single_not_match = True
@@ -112,7 +125,56 @@ class TransformerPredictor(nn.Module):
             else:
                 visual_rep = ctx_gate * union_features
 
-        rel_dists = self.rel_compress(visual_rep) + self.ctx_compress(prod_rep)
+        if prod_rep.shape[0] != 0:
+            # Stack routine
+            prod_reps = prod_rep.split(num_rels, dim=0)
+            rel_type_reps = [prod.view(3, -1, self.hidden_dim * 2) for prod in prod_reps]
+            rel_type_rep = cat(rel_type_reps, dim=1).cuda()
+            
+            att_dists = self.att_ctx_compress(rel_type_rep[0])
+            spa_dists = self.spa_ctx_compress(rel_type_rep[1])
+            con_dists = self.con_ctx_compress(rel_type_rep[2])
+
+            att_cls = torch.zeros(att_dists.shape[0], 27)
+            spa_cls = torch.zeros(spa_dists.shape[0], 27)
+            con_cls = torch.zeros(con_dists.shape[0], 27)
+
+            att_cls[:, :3] = att_dists 
+            spa_cls[:, 3:9] = spa_dists
+            con_cls[:, 9:] = con_dists
+
+            rel_dist = []
+            for i in range(att_dists.shape[0]):
+                rel_dist.append(torch.stack((att_cls[i, :], spa_cls[i,:], con_cls[i,:])))
+            
+            prod_rep_stack = torch.stack(rel_dist).view(prod_rep.shape[0], 27).cuda()
+            
+            # Stack routine
+            visual_reps = visual_rep.split(num_rels, dim=0)
+            rel_type_reps = [prod.view(3, -1, self.pooling_dim) for prod in visual_reps]
+            rel_type_rep = cat(rel_type_reps, dim=1).cuda()
+            
+            att_dists = self.att_compress(rel_type_rep[0])
+            spa_dists = self.spa_compress(rel_type_rep[1])
+            con_dists = self.con_compress(rel_type_rep[2])
+
+            att_cls = torch.zeros(att_dists.shape[0], 27)
+            spa_cls = torch.zeros(spa_dists.shape[0], 27)
+            con_cls = torch.zeros(con_dists.shape[0], 27)
+
+            att_cls[:, :3] = att_dists 
+            spa_cls[:, 3:9] = spa_dists
+            con_cls[:, 9:] = con_dists
+
+            rel_dist = []
+            for i in range(att_dists.shape[0]):
+                rel_dist.append(torch.stack((att_cls[i, :], spa_cls[i,:], con_cls[i,:])))
+            
+            visual_rep_stack = torch.stack(rel_dist).view(prod_rep.shape[0], 27).cuda()
+            
+            rel_dists = prod_rep_stack + visual_rep_stack
+        else:
+            rel_dists = self.rel_compress(visual_rep) + self.ctx_compress(prod_rep)
                 
         # use frequence bias
         if self.use_bias:
@@ -233,12 +295,21 @@ class MotifPredictor(nn.Module):
         self.pooling_dim = config.MODEL.ROI_RELATION_HEAD.CONTEXT_POOLING_DIM
         self.post_emb = nn.Linear(self.hidden_dim, self.hidden_dim * 2)
         self.post_cat = nn.Linear(self.hidden_dim * 2, self.pooling_dim)
-        self.rel_compress = nn.Linear(self.pooling_dim, self.num_rel_cls, bias=True)
+
+        attention_classes = 3; spatial_classes = 6; contacting_classes = 18
+        self.rel_compress = nn.Linear(self.pooling_dim, self.num_rel_cls, bias=True)     
+        self.att_compress = nn.Linear(self.pooling_dim, attention_classes, bias=True)     
+        self.spa_compress = nn.Linear(self.pooling_dim, spatial_classes, bias=True)     
+        self.con_compress = nn.Linear(self.pooling_dim, contacting_classes, bias=True)     
 
         # initialize layer parameters 
         layer_init(self.post_emb, 10.0 * (1.0 / self.hidden_dim) ** 0.5, normal=True)
         layer_init(self.post_cat, xavier=True)
+        
         layer_init(self.rel_compress, xavier=True)
+        layer_init(self.att_compress, xavier=True)
+        layer_init(self.spa_compress, xavier=True)
+        layer_init(self.con_compress, xavier=True)
         
         if self.pooling_dim != config.MODEL.ROI_BOX_HEAD.MLP_HEAD_DIM:
             self.union_single_not_match = True
@@ -296,7 +367,31 @@ class MotifPredictor(nn.Module):
             else:
                 prod_rep = prod_rep * union_features
 
-        rel_dists = self.rel_compress(prod_rep)
+        if prod_rep.shape[0] != 0:
+            # Stack routine
+            prod_reps = prod_rep.split(num_rels, dim=0)
+            rel_type_reps = [prod.view(3, -1, self.pooling_dim) for prod in prod_reps]
+            rel_type_rep = cat(rel_type_reps, dim=1)
+            
+            att_dists = self.att_compress(rel_type_rep[0])
+            spa_dists = self.spa_compress(rel_type_rep[1])
+            con_dists = self.con_compress(rel_type_rep[2])
+
+            att_cls = torch.zeros(att_dists.shape[0], 27)
+            spa_cls = torch.zeros(spa_dists.shape[0], 27)
+            con_cls = torch.zeros(con_dists.shape[0], 27)
+
+            att_cls[:, :3] = att_dists 
+            spa_cls[:, 3:9] = spa_dists
+            con_cls[:, 9:] = con_dists
+
+            rel_dist = []
+            for i in range(att_dists.shape[0]):
+                rel_dist.append(torch.stack((att_cls[i, :], spa_cls[i,:], con_cls[i,:])))
+            
+            rel_dists = torch.stack(rel_dist).view(prod_rep.shape[0], 27).cuda()
+        else:
+            rel_dists = self.rel_compress(prod_rep) # Unneccesary
 
         if self.use_bias:
             rel_dists = rel_dists + self.freq_bias.index_with_labels(pair_pred.long())
@@ -412,7 +507,7 @@ class VCTreePredictor(nn.Module):
         #uni_dists = self.uni_compress(self.drop(union_features))
         frq_dists = self.freq_bias.index_with_labels(pair_pred.long())
 
-        rel_dists = ctx_dists + frq_dists
+        rel_dists = ctx_dists + frq_dists #TODO Stack 3 layers here
         #rel_dists = ctx_dists + uni_gate * uni_dists + frq_gate * frq_dists
 
         obj_dists = obj_dists.split(num_objs, dim=0)

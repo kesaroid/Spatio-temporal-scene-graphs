@@ -56,12 +56,13 @@ class ROIRelationHead(torch.nn.Module):
             # relation subsamples and assign ground truth label during training
             with torch.no_grad():
                 if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_BOX:
-                    proposals, rel_labels, rel_pair_idxs, rel_binarys = self.samp_processor.gtbox_relsample(proposals, targets)
+                    proposals, rel_labels, rel_pair_idxs, rel_binarys, rel_pair_idx = self.samp_processor.gtbox_relsample(proposals, targets)
+                    # proposals, rel_labels, rel_pair_idxs, rel_binarys = self.samp_processor.gtbox_relsample2(proposals, targets)
                 else:
                     proposals, rel_labels, rel_pair_idxs, rel_binarys = self.samp_processor.detect_relsample(proposals, targets)
         else:
             rel_labels, rel_binarys = None, None
-            rel_pair_idxs = self.samp_processor.prepare_test_pairs(features[0].device, proposals)
+            rel_pair_idx, rel_pair_idxs = self.samp_processor.prepare_test_pairs(features[0].device, proposals)
 
         # use box_head to extract features that will be fed to the later predictor processing
         roi_features = self.box_feature_extractor(features, proposals)
@@ -81,7 +82,7 @@ class ROIRelationHead(torch.nn.Module):
 
         # for test
         if not self.training:
-            result = self.post_processor((relation_logits, refine_logits), rel_pair_idxs, proposals)
+            result = self.post_processor((relation_logits, refine_logits), rel_pair_idx, proposals) #TODO Check rel_pair_idxs
             return roi_features, result, {}
 
         loss_relation, loss_refine = self.loss_evaluator(proposals, rel_labels, relation_logits, refine_logits)
