@@ -247,6 +247,7 @@ class TransformerContext(nn.Module):
 
         # label/logits embedding will be used as input
         if self.cfg.MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL:
+            obj_labels = obj_labels.long()
             obj_embed = self.obj_embed1(obj_labels)
         else:
             obj_logits = cat([proposal.get_field("predict_logits") for proposal in proposals], dim=0).detach()

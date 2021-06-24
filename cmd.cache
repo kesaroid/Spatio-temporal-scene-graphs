@@ -47,16 +47,16 @@ CUDA_VISIBLE_DEVICES=0,1 python -m torch.distributed.launch --master_port 10005 
 # Scene Graph Detection (SGDet): MODEL.ROI_RELATION_HEAD.USE_GT_BOX False MODEL.ROI_RELATION_HEAD.USE_GT_OBJECT_LABEL False
 
 # Faster-RCNN pretrain
-CUDA_VISIBLE_DEVICES=1 python tools/detector_pretrain_net.py --config-file "configs/Detector_X_101_32_8_FPN_1x_ag.yaml" SOLVER.IMS_PER_BATCH 8 TEST.IMS_PER_BATCH 6 DTYPE "float16" OUTPUT_DIR './output/pre101rcnn/'
+CUDA_VISIBLE_DEVICES=1 python tools/detector_pretrain_net.py --config-file "configs/Detector_X_101_32_8_FPN_1x_ag.yaml" SOLVER.IMS_PER_BATCH 8 TEST.IMS_PER_BATCH 6 DTYPE "float16" OUTPUT_DIR 'output/res101'
 
 # Faster-RCNN test
-CUDA_VISIBLE_DEVICES=1 python tools/detector_pretest_net.py --config-file "configs/Detector_X_101_32_8_FPN_1x_ag.yaml" DTYPE "float16" OUTPUT_DIR output/train3 MODEL.RELATION_ON False
+CUDA_VISIBLE_DEVICES=1 python tools/detector_pretest_net.py --config-file "configs/Detector_X_101_32_8_FPN_2x_ag.yaml" DTYPE "float16" OUTPUT_DIR 'output/pre-101-rcnn' MODEL.RELATION_ON False
 
 # AG_Train
 # Motifnet
 CUDA_VISIBLE_DEVICES=1 python tools/relation_train_net.py --config-file "configs/Relation_X_101_32_8_FPN_1x_ag.yaml" MODEL.ROI_RELATION_HEAD.USE_GT_BOX True MODEL.ROI_RELATION_HEAD.PREDICTOR MotifPredictor SOLVER.IMS_PER_BATCH 8 TEST.IMS_PER_BATCH 4 DTYPE "float16" OUTPUT_DIR output/train3/ SOLVER.PRE_VAL False
 # TransformerPredictor
-CUDA_VISIBLE_DEVICES=1 python tools/relation_train_net.py --config-file "configs/Relation_X_101_32_8_FPN_1x_ag.yaml" MODEL.ROI_RELATION_HEAD.USE_GT_BOX True MODEL.ROI_RELATION_HEAD.PREDICTOR TransformerPredictor SOLVER.IMS_PER_BATCH 8 TEST.IMS_PER_BATCH 4 DTYPE "float16" OUTPUT_DIR output/train2/ SOLVER.PRE_VAL False
+CUDA_VISIBLE_DEVICES=1 python tools/relation_train_net.py --config-file "configs/Relation_X_101_32_8_FPN_1x_ag.yaml" MODEL.ROI_RELATION_HEAD.USE_GT_BOX True MODEL.ROI_RELATION_HEAD.PREDICTOR TransformerPredictor SOLVER.IMS_PER_BATCH 8 TEST.IMS_PER_BATCH 4 DTYPE "float16" OUTPUT_DIR output/train4/ SOLVER.PRE_VAL False
 
 # ag Evaluation
 # Motifnet
@@ -68,4 +68,4 @@ CUDA_VISIBLE_DEVICES=1 python tools/relation_train_net.py --config-file "configs
 # Motifnet
 CUDA_VISIBLE_DEVICES=1 python tools/relation_test_net.py --config-file "configs/Relation_X_101_32_8_FPN_1x_ag.yaml" TEST.IMS_PER_BATCH 4 DTYPE "float16" SOLVER.PRE_VAL False OUTPUT_DIR output/train3
 # TransformerPredictor
-CUDA_VISIBLE_DEVICES=1 python tools/relation_test_net.py --config-file "configs/Relation_X_101_32_8_FPN_1x_ag.yaml" TEST.IMS_PER_BATCH 8 DTYPE "float16" SOLVER.PRE_VAL False OUTPUT_DIR output/train2
+CUDA_VISIBLE_DEVICES=1 python tools/relation_test_net.py --config-file "configs/Relation_X_101_32_8_FPN_1x_ag.yaml" TEST.IMS_PER_BATCH 8 DTYPE "float16" SOLVER.PRE_VAL False OUTPUT_DIR output/Saved_models/RL=Transformer_v2

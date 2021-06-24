@@ -118,19 +118,19 @@ class DatasetCatalog(object):
             "dict_file": "vg/VG-SGG-dicts-with-attri.json",
             "image_file": "vg/image_data.json",
         },
-        "AG_v3Graph_train": {
+        "AG_train": {
             "img_dir": "frames",
-            "ann_file": "annotations/COCO/action_genome_train_v3graph_v2.json",
+            "ann_file": "annotations/COCO/AG-train.json",
             "split": 'train',
         },
-        "AG_v3Graph_val": {
+        "AG_val": {
             "img_dir": "frames",
-            "ann_file": "annotations/COCO/action_genome_val_v3graph_v2.json",
+            "ann_file": "annotations/COCO/AG-val.json",
             "split": 'val',
         },
-        "AG_v3Graph_test": {
+        "AG_test": {
             "img_dir": "frames",
-            "ann_file": "annotations/COCO/action_genome_test_v3graph_v2.json",
+            "ann_file": "annotations/COCO/AG-test.json",
             "split": 'test',
         }
     }

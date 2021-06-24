@@ -95,7 +95,7 @@ def do_ag_evaluation(
             label = prediction.get_field('pred_labels').detach().cpu().numpy() # (#objs,)
             # for predcls, we set label and score to groundtruth
             if mode == 'predcls':
-                label = prediction.get_field('pred_labels').detach().cpu().numpy() # labels TODO
+                label = prediction.get_field('pred_labels').detach().cpu().numpy()
                 score = np.ones(label.shape[0])
                 assert len(label) == len(box)
             image_id = np.asarray([image_id]*len(box))
