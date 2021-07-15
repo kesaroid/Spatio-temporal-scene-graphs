@@ -8,6 +8,7 @@ build/
 dist/
 visualization/
 
+
 # ipython/jupyter notebooks
 #*.ipynb
 **/.ipynb_checkpoints/
