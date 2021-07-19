@@ -40,11 +40,10 @@ class AGQA(Dataset):
             # I = np.matrix(np.eye(A.shape[0]))
             # A = A + I
             X = np.sum(A, axis=0)
-            print(self.X_g[idx].nodes(data=True))
-            print(self.X_g[idx].edges(data=True))
-            print(A)
-            print(X)
-            return A[:, np.argmax(X)]
+            # print(self.X_g[idx].nodes(data=True))
+            # print(self.X_g[idx].edges(data=True))
+            # print(A)
+            return A[:, 0]
 
         X_t = torch.from_numpy(self.X_t[idx][0].astype(np.int32)).squeeze()
         # X_t = torch.from_numpy(self.X_t[idx])
@@ -52,7 +51,8 @@ class AGQA(Dataset):
         X_g = torch.from_numpy(X_g)
         X_adj = torch.zeros_like(X_g)
 
-        print(X_g, self.y[idx])
+        # print(X_g, self.y[idx])
+        # exit()
         if self.padding:
             pad = torch.zeros((self.embed_len - X_g.shape[0], X_g.shape[1])).double()
             X_g = torch.cat((X_g.double(), pad), dim=0)

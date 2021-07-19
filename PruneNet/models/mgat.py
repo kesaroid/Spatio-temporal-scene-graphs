@@ -60,8 +60,7 @@ class MGAT(nn.Module):
         x = nn.ConstantPad1d((0, 128 - x.shape[2]), 0)(x)
         x = F.conv1d(x, self.weight_kernel, stride=1)
         x = F.relu(x)
-        print(x)
-        exit()
+        # print(x)
         lstm_out, (ht, ct) = self.lstm(x)
 
         return F.softmax(ht[-1], dim=1)

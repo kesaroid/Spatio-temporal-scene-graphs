@@ -16,6 +16,7 @@ from utils.graph import create_graph
 from utils import paths_catalog as path
 
 from model import Network
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 def main():
     cache = os.path.exists(path.corpus_path)
@@ -34,23 +35,23 @@ def main():
             # print("Edges: ", G.edges(data=True))
             # A = nx.linalg.graphmatrix.adjacency_matrix(G).todense()
             # print(A)
-            # X = np.matrix([
-            #     [1]
-            #     for i in range(A.shape[0])], dtype=float)
-            # I = np.matrix(np.eye(A.shape[0]))
-            # A_hat = A + I
-            # D = np.array(np.sum(A_hat, axis=0))[0]
-            # D = np.matrix(np.diag(D))
-            # print(D**-1 * A_hat * X)
+            # # X = np.matrix([
+            # #     [1]
+            # #     for i in range(A.shape[0])], dtype=float)
+            # # I = np.matrix(np.eye(A.shape[0]))
+            # # A_hat = A + I
+            # X = np.sum(A, axis=0)
+            # print(A[:, np.argmax(X)])
 
             ag.videos[video]['G_gt'] = G
+            Q = QA(ag.videos[video], G, ag.cat2pred)
+            ag.videos[video]['Questions'], ag.videos[video]['Answers'] = Q.create_questions(roiObj)
+
             if draw:
                 nx.draw(G, with_labels=True, font_weight='bold')
                 nx.random_layout(G)
                 plt.show()
-            
-            Q = QA(ag.videos[video], G, ag.cat2pred)
-            ag.videos[video]['Questions'], ag.videos[video]['Answers'] = Q.create_questions(roiObj)
+
         utils.save_pkl(ag.videos, path.corpus_path)
         
     else:

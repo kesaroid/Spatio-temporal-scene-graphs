@@ -253,6 +253,8 @@ class Network():
             pred = torch.max(y_pred, 1)[1]
             all_pred.append(pred.item())
             all_gt.append(y.item())
+            # print(all_gt, all_pred)
+            # exit()
             correct += (pred == y).float().sum()
             total += y.shape[0]
             sum_loss += loss.item()*y.shape[0]

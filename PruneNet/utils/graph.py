@@ -8,7 +8,9 @@ def create_graph(video, cat2pred, mode='groundtruth'):
 
         G = nx.DiGraph()
         rois = [i for i in list(video['objs']) if i != 'person']
-        roi_obj = random.choice(rois)
+        roi_obj = rois[0] # random.choice(rois)
+
+        G.add_node('looking_at') # necessary for all looking_at questions
         G.add_nodes_from(video['objs'])
         for i in range(len(video['frames'])):
             frame = video['frames'][i].split('.')[0]
@@ -19,6 +21,7 @@ def create_graph(video, cat2pred, mode='groundtruth'):
                     G.add_edge(i, triplet[1]) # i or frame
                     G.add_edge(triplet[1], triplet[-1])
         
+        return G, roi_obj
 
         # print("Nodes: ", G.nodes(data=True)) # Show all nodes
         # print("Edges: ", G.edges(data=True)) # Show all edges
@@ -31,8 +34,6 @@ def create_graph(video, cat2pred, mode='groundtruth'):
         
         
         # print(G['person']) # Atlas view
-        
-        return G, roi_obj
 
 # import matplotlib.pyplot as plt
 # import numpy as np

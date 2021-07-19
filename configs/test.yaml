@@ -6,7 +6,7 @@ INPUT:
 MODEL:
   META_ARCHITECTURE: "GeneralizedRCNN"
   WEIGHT: "catalog://ImageNetPretrained/FAIR/20171220/X-101-32x8d" #
-  PRETRAINED_DETECTOR_CKPT: checkpoint/res101X/model_final.pth # output/Saved_models/pre-rcnn_backbone=Resnet101/model_final.pth # 'output/model_final.pth' #
+  # PRETRAINED_DETECTOR_CKPT: checkpoint/res101X/model_final.pth # output/Saved_models/pre-rcnn_backbone=Resnet101/model_final.pth # 'output/model_final.pth' #
   BACKBONE:
     CONV_BODY: "R-101-FPN" # VGG-16
   RESNETS:
